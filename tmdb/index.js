@@ -1,0 +1,87 @@
+const config = require('../config')
+const { default: axios } = require('axios');
+
+let url = 'https://api.themoviedb.org/3/'
+
+const extractEntity = (nlp, entity) => {
+    if(nlp.intents[0].confidence > 0.8){
+        if(entity == 'intent'){
+            return nlp.intents[0].name
+        }
+        else{
+            try{
+                return nlp.entities[entity+':'+entity][0].body
+            }
+            catch(e){//If entity does not exist
+                return null
+            }
+
+        }
+    }else{
+        return null
+    }
+}
+
+const getMovieData = (movie, releaseYear = null) => {
+    return new Promise(async (resolve, reject) => {
+        //First find the movie
+        str = ''
+        if(releaseYear == null){
+            str = url+'search/movie?api_key=' + config.TMDB + '&query=' + movie
+        }
+        else{
+            str = url+'search/movie?api_key=' + config.TMDB + '&query=' + movie + '&year=' + releaseYear
+        }
+        axios.get(str).then(res => {
+            resolve(res.data.results[0])
+        }).catch(err => {
+            reject(err.response.data)
+        })
+    })
+}
+
+const getDirector = movieId => {
+    return new Promise(async (resolve, reject) => {
+        let req = url+'movie/' + movieId + '?api_key=' + config.TMDB
+        axios.get(req).then(res => {
+            resolve(res.data)
+        }).catch(err => {
+            reject(err)
+        })
+    })
+}
+
+module.exports = nlpData => {
+    return new Promise(async (resolve, reject) => {
+        let intent = extractEntity(nlpData, 'intent')
+        if(intent){
+            let movie = extractEntity(nlpData, 'movie')
+            let releaseYear = extractEntity(nlpData, 'releaseYear')
+            try{
+                let movieData = await getMovieData(movie, releaseYear)
+                if(intent == 'director'){
+                    let movieDataDetailed = await getDirector(movieData.id)
+                    let res = `No director information here but I can tell you the cost of production and it was ${movieDataDetailed.budget}$ and it get ${movieDataDetailed.revenue}$ back`
+                    resolve(res)
+                }
+                else{
+                    let response = `
+                    The movie has been released the ${movieData.release_date}.\n
+                    It have a score of ${movieData.popularity}\n
+                    The original title is : ${movieData.original_title}\n
+                    Here is the overview : ${movieData.overview}`
+                    resolve(response)
+                }
+                
+            }
+            catch (error){
+                reject(error)
+            }
+        }
+        else{
+            resolve({
+                txt: "I'm not sure I understand you"
+            })
+        }
+    })
+}
