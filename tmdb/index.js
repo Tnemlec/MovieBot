@@ -42,7 +42,7 @@ const getMovieData = (movie, releaseYear = null) => {
 
 const getDirector = movieId => {
     return new Promise(async (resolve, reject) => {
-        let req = url+'movie/' + movieId + '?api_key=' + config.TMDB
+        let req = url+'movie/' + movieId + '/credits?api_key=' + config.TMDB
         axios.get(req).then(res => {
             resolve(res.data)
         }).catch(err => {
@@ -61,7 +61,12 @@ module.exports = nlpData => {
                 let movieData = await getMovieData(movie, releaseYear)
                 if(intent == 'director'){
                     let movieDataDetailed = await getDirector(movieData.id)
-                    let res = `No director information here but I can tell you the cost of production and it was ${movieDataDetailed.budget}$ and it get ${movieDataDetailed.revenue}$ back`
+                    let res = 'No director found'
+                    for(let j = 0; j < movieDataDetailed.crew.length; j++){
+                        if(movieDataDetailed.crew[j].job == 'Director'){
+                            res = 'The director is : ' + movieDataDetailed.crew[j].name
+                        }
+                    }
                     resolve(res)
                 }
                 else{
